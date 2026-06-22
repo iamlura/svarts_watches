@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SVARTS — Bespoke Configurator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  /* ============================================================
+     SVARTS configurator
+     EDIT ZONE 1 — paste your Apps Script Web App URL in the
+     JS block near the bottom (search for APPS_SCRIPT_URL).
+     ============================================================ */
+
+  :root{
+    --bg1:#f7f8fa;
+    --bg2:#e7e9ee;
+    --ink:#16181d;
+    --ink-soft:#6b7280;
+    --line:#d9dce3;
+    --line-strong:#16181d;
+    --card:#ffffff;
+    --accent:#16181d;
+    --royal:#031b2e;
+    --radius:14px;
+    --shadow:0 18px 50px -28px rgba(20,24,29,.35);
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+    color:var(--ink);
+    background:
+      radial-gradient(1200px 700px at 70% -10%, #ffffff 0%, rgba(255,255,255,0) 60%),
+      linear-gradient(160deg, var(--bg1) 0%, var(--bg2) 100%);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+    overflow:hidden;
+  }
+
+  /* ---- Top bar ---- */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:22px 32px;
+  }
+  .brand{
+    font-family:'Libre Baskerville',serif;
+    font-weight:700;
+    letter-spacing:.18em;
+    font-size:20px;
+  }
+  .topbar .meta{font-size:11px;letter-spacing:.22em;color:var(--ink-soft);text-transform:uppercase}
+
+  /* ---- Progress ---- */
+  .progress-wrap{padding:0 32px;max-width:1180px;margin:0 auto;width:100%}
+  .progress{height:2px;background:var(--line);border-radius:2px;overflow:hidden}
+  .progress > span{display:block;height:100%;width:0%;background:var(--line-strong);transition:width .5s cubic-bezier(.4,0,.1,1)}
+
+  /* ---- Stage ---- */
+  .stage{
+    max-width:1180px;margin:0 auto;padding:18px 32px 56px;
+    display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center;
+    min-height:72vh;
+  }
+  .stage.solo{grid-template-columns:1fr;max-width:720px}
+  @media(max-width:880px){
+    .stage{grid-template-columns:1fr;gap:28px;min-height:auto;padding-top:8px}
+    .visual{order:-1}
+  }
+
+  /* ---- Visual panel (live watch) ---- */
+  .visual{
+    position:relative;border-radius:24px;
+    background:
+      radial-gradient(420px 420px at 50% 38%, #ffffff 0%, rgba(255,255,255,0) 70%),
+      linear-gradient(150deg,#eef0f4 0%, #dfe2e9 100%);
+    box-shadow:var(--shadow);
+    aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+  }
+  .visual .hero{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .visual .scrim{position:absolute;inset:0;background:linear-gradient(to top, rgba(15,17,21,.55) 0%, rgba(15,17,21,0) 40%);z-index:1}
+  .visual .cap{
+    position:absolute;bottom:18px;left:0;right:0;text-align:center;z-index:2;
+    font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#fff;
+  }
+
+  /* ---- Content panel ---- */
+  .panel{min-width:0;transform:translateY(150px) scale(.75);transform-origin:top center}
+  .step{display:none;animation:fade .45s ease both}
+  .step.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+  .eyebrow{font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:14px}
+  .brand-hero{font-family:'Libre Baskerville',serif;font-weight:700;letter-spacing:.09em;font-size:16px;margin-bottom:15px}
+  .intro-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center;width:100%}
+  .intro-img{display:flex;justify-content:flex-end;align-items:center;padding-right:4vw}
+  .intro-img img{width:100%;max-height:72vh;object-fit:contain;filter:drop-shadow(0 30px 50px rgba(20,24,29,.25));
+    opacity:.4;transform:translate(250px,105px) scale(1.12) rotate(10deg);transform-origin:right center}
+  #intro{overflow:visible}
+  .intro-img img.fallback{border-radius:24px;max-height:58vh;width:auto}
+  @media(max-width:880px){.intro-grid{grid-template-columns:1fr}.intro-img{display:none}}
+  h1.q{font-family:'Libre Baskerville',serif;font-weight:700;font-size:clamp(26px,3.4vw,40px);line-height:1.12;margin-bottom:10px}
+  .sub{color:var(--ink-soft);font-size:15px;margin-bottom:26px;max-width:46ch}
+
+  /* option cards */
+  .options{display:flex;flex-direction:column;gap:12px;margin-bottom:8px}
+  .opt{
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    border:none;background:var(--card);border-radius:var(--radius);
+    padding:18px 20px;cursor:pointer;transition:.2s;box-shadow:0 2px 12px -6px rgba(20,24,29,.18);
+  }
+  .opt:hover{transform:translateY(-1px);box-shadow:0 8px 20px -10px rgba(20,24,29,.28)}
+  .opt.sel{box-shadow:0 6px 18px -8px rgba(20,24,29,.34)}
+  .opt .t{font-weight:500;font-size:16px}
+  .opt .d{font-size:13px;color:var(--ink-soft);margin-top:3px}
+  .opt .price-hint{font-size:12px;color:var(--ink-soft);white-space:nowrap}
+  .opt .tick{width:18px;height:18px;border-radius:50%;border:1px solid var(--line);flex:0 0 auto;position:relative}
+  .opt.sel .tick{background:var(--line-strong);border-color:var(--line-strong)}
+  .opt.sel .tick:after{content:"";position:absolute;inset:5px;border-radius:50%;background:#fff}
+
+  /* chips */
+  .chips{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px}
+  .chip{
+    border:none;background:var(--card);border-radius:999px;
+    padding:10px 16px;font-size:14px;cursor:pointer;transition:.18s;display:flex;align-items:center;gap:8px;
+    box-shadow:0 2px 10px -6px rgba(20,24,29,.18);
+  }
+  .chip:hover{transform:translateY(-1px);box-shadow:0 6px 14px -8px rgba(20,24,29,.26)}
+  .chip.sel{background:var(--line-strong);color:#fff;box-shadow:none}
+
+  /* search-and-select (materials) */
+  .ss-input2{width:100%;border:none;outline:none;background:var(--card);border-radius:var(--radius);
+    box-shadow:0 2px 12px -6px rgba(20,24,29,.18);padding:16px 18px;font-family:inherit;font-size:15px;color:var(--ink)}
+  .ss-input2::placeholder{color:#9aa0ab}
+  .ss-tags2{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .ss-tag{display:inline-flex;align-items:center;gap:7px;background:var(--line-strong);color:#fff;
+    border-radius:999px;padding:7px 12px;font-size:13px}
+  .ss-tag .sw{width:12px;height:12px;border-radius:50%;border:1px solid rgba(255,255,255,.3)}
+  .ss-x{background:none;border:none;color:#fff;cursor:pointer;font-size:15px;line-height:1;padding:0 0 0 2px}
+  .ss-sugg{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .sugg-chip{display:inline-flex;align-items:center;gap:7px;border:none;background:var(--card);
+    box-shadow:0 2px 10px -6px rgba(20,24,29,.18);border-radius:999px;padding:9px 14px;font-size:14px;
+    font-family:inherit;color:var(--ink);cursor:pointer;transition:.18s}
+  .sugg-chip:hover{transform:translateY(-1px);box-shadow:0 6px 14px -8px rgba(20,24,29,.26)}
+  .sugg-chip .sw{width:13px;height:13px;border-radius:50%;border:1px solid rgba(0,0,0,.15)}
+  .sugg-chip.add{font-style:italic;color:var(--ink-soft)}
+  .chip .sw{width:13px;height:13px;border-radius:50%;border:1px solid rgba(0,0,0,.15)}
+
+  /* inputs */
+  textarea,input[type=text]{
+    width:100%;border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px 16px;font-family:inherit;font-size:15px;color:var(--ink);background:var(--card);
+    resize:vertical;transition:.2s;
+  }
+  textarea:focus,input:focus{outline:none;border-color:var(--line-strong)}
+  textarea{min-height:120px}
+  .field-label{font-size:13px;color:var(--ink-soft);margin:14px 0 8px}
+
+  /* upload */
+  .drop{
+    border:1.5px dashed var(--line);border-radius:var(--radius);padding:34px 20px;text-align:center;
+    cursor:pointer;transition:.2s;background:var(--card);
+  }
+  .drop:hover,.drop.drag{border-color:var(--line-strong);background:#fbfbfc}
+  .drop .ic{font-size:26px;margin-bottom:8px}
+  .drop .big{font-weight:500}
+  .drop .small{font-size:13px;color:var(--ink-soft);margin-top:4px}
+  .prev-grid{display:flex;flex-wrap:wrap;gap:16px;margin-top:18px}
+  .prev-item{position:relative;width:130px}
+  .prev-item img{width:130px;height:100px;object-fit:cover;border-radius:10px;display:block}
+  .prev-item .name{font-size:12px;color:var(--ink-soft);margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .prev-x{position:absolute;top:-9px;right:-9px;width:24px;height:24px;border-radius:50%;border:none;
+    background:var(--ink);color:#fff;cursor:pointer;font-size:16px;line-height:1;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+  .prev-x:hover{background:#000;transform:scale(1.08)}
+
+  /* nav */
+  .nav{display:flex;align-items:center;gap:14px;margin-top:30px}
+  .btn{
+    border:none;border-radius:18px;padding:14px 30px;font-family:inherit;font-size:14px;font-weight:500;
+    cursor:pointer;transition:.2s;letter-spacing:.02em;
+    display:inline-flex;align-items:center;justify-content:center;
+  }
+  .btn-sm{padding:10px 22px;font-size:11px;border-radius:14px}
+  .btn-sm .arrow{width:27px;height:11px;margin-left:11px}
+  .btn-primary{background:var(--royal);color:#fff}
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 24px -12px rgba(3,27,46,.7)}
+  .btn-primary:disabled{opacity:.35;cursor:not-allowed;transform:none;box-shadow:none}
+  .btn-ghost{background:#e6e8ec;color:var(--ink)}
+  .btn-ghost:hover{background:#dadde3}
+  .btn-white{background:#fff;color:var(--ink);box-shadow:0 8px 26px -14px rgba(20,24,29,.5)}
+  .btn-white:hover{transform:translateY(-1px);box-shadow:0 12px 30px -14px rgba(20,24,29,.55)}
+  .arrow{width:36px;height:15px;margin-left:14px;flex:0 0 auto}
+  .step-count{font-size:12px;color:var(--ink-soft);letter-spacing:.1em}
+  .push-right{margin-left:auto}
+  .btn-outline{background:transparent;border:1.5px solid var(--royal);color:var(--royal)}
+  .btn-outline:hover{background:var(--royal);color:#fff;transform:translateY(-1px)}
+  .err{color:#b3261e;font-size:13px;margin-top:14px;min-height:18px}
+  .req{color:var(--ink-soft);font-size:12px;margin-left:6px}
+
+  /* review */
+  .review-list{border-top:1px solid var(--line)}
+  .review-row{display:flex;justify-content:space-between;gap:20px;padding:14px 0;border-bottom:1px solid var(--line)}
+  .review-row .k{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);flex:0 0 42%}
+  .review-row .v{text-align:right;font-size:15px}
+  .review-row .v.empty{color:#b4b9c4;font-style:italic}
+  .price-box{
+    margin-top:60px;padding:0;
+    background:transparent;color:var(--ink);display:flex;align-items:baseline;justify-content:space-between;gap:16px;
+  }
+  .price-box .lab{font-size:8px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-soft)}
+  .price-box .amt{font-family:'Libre Baskerville',serif;font-size:22px}
+  .price-note{font-size:12px;color:var(--ink-soft);margin-top:10px}
+
+  /* intro + thanks */
+  .center-screen{max-width:1180px;margin:0 auto;padding:40px 32px;min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:flex-start}
+  .center-screen.hide{display:none}
+  .hero-title{font-family:'Libre Baskerville',serif;font-weight:700;font-size:clamp(30px,5.25vw,63px);line-height:1.04;letter-spacing:.04em}
+  .hero-sub{color:var(--ink-soft);font-size:14px;margin:16px 0 28px;max-width:48ch}
+  .sending{display:none;font-size:13px;color:var(--ink-soft);margin-top:14px}
+</style>
+</head>
+<body>
+
+  <!-- INTRO -->
+  <section class="center-screen" id="intro">
+    <div class="intro-grid"><div class="intro-text">
+    <div class="brand-hero">SVARTS</div>
+    <h1 class="hero-title">Build your<br/>timepiece.</h1>
+    <p class="hero-sub">A few questions about movement, materials and finish.<br/>We review your brief and return an estimate.</p>
+    <button class="btn btn-primary btn-sm" onclick="start()">Start
+      <svg class="arrow" viewBox="0 0 36 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <line x1="0" y1="8" x2="32" y2="8" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M26 2 L34 8 L26 14" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    </div>
+    <div class="intro-img">
+      <!-- EDIT ZONE 4 — save your skeleton-watch image into this folder as
+           watch2.png and it shows here. Until then a fallback photo appears. -->
+      <img id="heroWatch" alt="Timepiece" src="watch2.png"
+           onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1755434594333-ed3e51254385?fm=jpg&q=80&w=1200&auto=format&fit=crop';this.classList.add('fallback');"/>
+    </div>
+    </div>
+  </section>
+
+  <!-- CONFIGURATOR -->
+  <div id="config" style="display:none">
+    <div class="progress-wrap"><div class="progress"><span id="bar"></span></div></div>
+
+    <div class="stage">
+      <!-- live visual -->
+      <div class="visual">
+        <!-- EDIT ZONE 3 — swap this src for your own watch photo (a local file
+             like watch.jpg, or any image URL). -->
+        <img class="hero" id="heroImg" alt="Timepiece"
+             src="https://images.unsplash.com/photo-1755434594333-ed3e51254385?fm=jpg&q=80&w=1400&auto=format&fit=crop" />
+        <div class="scrim"></div>
+        <div class="cap" id="vcap">Your configuration</div>
+      </div>
+
+      <!-- steps -->
+      <div class="panel" id="panel"><!-- steps injected --></div>
+    </div>
+  </div>
+
+  <!-- THANKS -->
+  <section class="center-screen hide" id="thanks">
+    <div class="eyebrow">Received</div>
+    <h1 class="hero-title">Thank you.</h1>
+    <p class="hero-sub">Your brief is with the maker. You'll hear back by email with a firm quote and next steps.</p>
+    <a class="btn btn-primary" id="siteBtn" href="#">Go to SVARTS website &nbsp;→</a>
+  </section>
+
+<script>
+/* ============================================================
+   EDIT ZONE 1 — paste the Web App URL you get from Apps Script.
+   Until you do, the form runs in "demo mode" (logs to console).
+   ============================================================ */
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxS0l7gF7ZlvcI5at1_osszf5FWXf5UDCbd8XKcZj4L8XEh-WD4TlkrOLKZWh8tMsoq/exec";
+
+/* EDIT ZONE 2 — the SVARTS website the final button links to. */
+const SITE_URL = "https://svartswatches.com/"; // <-- change to your real site
+
+/* ---------- state ---------- */
+const state = {
+  name:"", phone:"", instagram:"", email:"",
+  movement:"", references:[],
+  brands:"", materials:[], strap:"", bracelet:"", dial:"", notes:""
+};
+
+const PRICE = {
+  "Quartz / Chronograph": {label:"R2,500 – R3,500", hint:"from R2,500"},
+  "Mechanical (automatic or hand-wound)": {label:"R4,000 – R4,500", hint:"from R4,000"},
+  "GMT automatic": {label:"R5,000 and up", hint:"from R5,000"}
+};
+
+const MATERIALS = [
+  {n:"Steel", c:"#c8ccd2"},{n:"Yellow gold", c:"#d9b15a"},{n:"Rose gold", c:"#d6a18a"},
+  {n:"Two-tone", c:"linear-gradient(90deg,#c8ccd2 50%,#d9b15a 50%)"},{n:"Titanium", c:"#9aa0a8"}
+];
+const DIALS = [
+  {n:"Black", c:"#1a1c20"},{n:"White", c:"#f4f4f4"},{n:"Silver", c:"#cfd3d9"},
+  {n:"Blue", c:"#2b4a7a"},{n:"Green", c:"#2f5d45"},{n:"Champagne", c:"#e6cf9c"},{n:"Salmon", c:"#e7a98c"}
+];
+const STRAP_COLOR = {Leather:"#6a4a32", Rubber:"#1b1d22", Steel:"#c8ccd2"};
+
+// returns a valid CSS color string if `name` is a recognised colour (e.g. "pink"), else null
+function cssColor(name){
+  if(!name) return null;
+  const s=new Option().style; s.color=""; s.color=name.trim().toLowerCase();
+  return s.color!=="" ? name.trim().toLowerCase() : null;
+}
+// swatch colour for a material/colour name: preset list first, then CSS colour names
+function swatchFor(name){
+  const m=MATERIALS.find(x=>x.n===name);
+  return m ? m.c : cssColor(name);
+}
+
+/* ---------- steps definition ---------- */
+const steps = [
+  {id:"contact", eyebrow:"Step 01", title:"Your details.",
+   sub:"So we can reach you about your brief.", render:renderContact},
+  {id:"movement", eyebrow:"Step 02", title:"Choose the movement.",
+   sub:"This is the heart of the watch and the main driver of price.", render:renderMovement},
+  {id:"reference", eyebrow:"Step 02", title:"Show us a reference.",
+   sub:"Upload an image of a watch or style you love.", render:renderReference},
+  {id:"brands", eyebrow:"Step 03", title:"Brands or models you like.",
+   sub:"List any references — e.g. Rolex Submariner, Omega, Tudor.", render:renderBrands},
+  {id:"materials", eyebrow:"Step 04", title:"Favourite colours & materials.",
+   sub:"Pick any that appeal. Add your own in the notes if needed.", render:renderMaterials},
+  {id:"strap", eyebrow:"Step 05", title:"Strap material.",
+   sub:"How should it sit on the wrist?", render:renderStrap},
+  {id:"bracelet", eyebrow:"Step 05b", title:"Bracelet style.",
+   sub:"Which steel bracelet do you prefer?", render:renderBracelet, when:()=>state.strap==="Steel"},
+  {id:"dial", eyebrow:"Step 06", title:"Dial colour.",
+   sub:"The face of the watch.", render:renderDial},
+  {id:"notes", eyebrow:"Step 07", title:"Notes for the maker.",
+   sub:"Anything else — engraving, size, deadline, budget.", render:renderNotes},
+  {id:"review", eyebrow:"Final", title:"Review your brief.",
+   sub:"Check everything, then send it through.", render:renderReview}
+];
+
+let idx = 0;
+const panel = document.getElementById("panel");
+
+function visibleSteps(){ return steps.filter(s=> !s.when || s.when()); }
+
+function start(){
+  document.getElementById("intro").classList.add("hide");
+  document.getElementById("intro").style.display="none";
+  document.getElementById("config").style.display="block";
+  idx=0; show();
+}
+
+function show(){
+  const vis = visibleSteps();
+  if(idx<0) idx=0;
+  if(idx>=vis.length) idx=vis.length-1;
+  const step = vis[idx];
+  document.getElementById("bar").style.width = ((idx)/(vis.length-1)*100)+"%";
+  // every step uses the same centered layout — no side image
+  const withVisual = false;
+  document.querySelector(".visual").style.display = withVisual ? "flex" : "none";
+  document.querySelector(".stage").classList.toggle("solo", !withVisual);
+  panel.innerHTML="";
+  const wrap=document.createElement("div");
+  wrap.className="step active";
+  const label = step.id==="review" ? "Review" : `Step ${idx+1} of ${vis.length}`;
+  wrap.innerHTML=`<div class="eyebrow">${label}</div>
+    <h1 class="q">${step.title}</h1><p class="sub">${step.sub}</p>
+    <div id="body"></div>`;
+  panel.appendChild(wrap);
+  step.render(document.getElementById("body"));
+  buildNav(wrap, step, vis);
+  drawWatch();
+}
+
+function buildNav(wrap, step, vis){
+  const nav=document.createElement("div"); nav.className="nav";
+  if(idx>0){
+    const b=document.createElement("button"); b.className="btn btn-ghost"; b.textContent="← Back";
+    b.onclick=()=>{idx--;show()}; nav.appendChild(b);
+  }
+  if(step.id!=="review"){
+    const n=document.createElement("button"); n.className="btn btn-outline push-right"; n.textContent="Continue →";
+    n.onclick=()=>{ if(validateStep(step)){ idx++; show(); } }; nav.appendChild(n);
+  }else{
+    const s=document.createElement("button"); s.className="btn btn-primary push-right"; s.id="sendBtn"; s.textContent="Send my brief →";
+    s.onclick=submitForm; nav.appendChild(s);
+  }
+  wrap.appendChild(nav);
+  const err=document.createElement("div"); err.className="err"; err.id="err";
+  wrap.appendChild(err);
+  const sending=document.createElement("div"); sending.className="sending"; sending.id="sending"; sending.textContent="Sending…";
+  wrap.appendChild(sending);
+}
+
+/* ---------- renderers ---------- */
+function renderContact(el){
+  el.innerHTML=`
+    <div class="field-label">Full name *</div>
+    <input type="text" id="cName" placeholder="Your name"/>
+    <div class="field-label">How can we reach you? <span style="font-weight:400">(at least one)</span> *</div>
+    <input type="text" id="cPhone" placeholder="Cellphone number" inputmode="tel"/>
+    <input type="text" id="cIg" placeholder="Instagram handle" style="margin-top:10px"/>
+    <input type="text" id="cEmail" placeholder="Email address" inputmode="email" style="margin-top:10px"/>`;
+  const bind=(id,key)=>{const i=el.querySelector(id);i.value=state[key];i.oninput=e=>state[key]=e.target.value;};
+  bind("#cName","name"); bind("#cPhone","phone"); bind("#cIg","instagram"); bind("#cEmail","email");
+}
+function renderMovement(el){
+  const opts=Object.keys(PRICE).map(k=>{
+    const sel = state.movement===k ? "sel":"";
+    const desc = k.startsWith("Quartz") ? "Quartz / chronograph — precise, low maintenance"
+      : k.startsWith("Mechanical") ? "Automatic or hand-wound mechanical"
+      : "Dual time-zone GMT, automatic";
+    return `<div class="opt ${sel}" data-k="${k}">
+      <div><div class="t">${k}</div><div class="d">${desc}</div></div>
+      <span class="tick"></span></div>`;
+  }).join("");
+  el.innerHTML=`<div class="options">${opts}</div>`;
+  el.querySelectorAll(".opt").forEach(o=>o.onclick=()=>{
+    state.movement=o.dataset.k; renderMovement(el); drawWatch();
+  });
+}
+const MAX_REFS = 5;
+function renderReference(el){
+  el.innerHTML=`
+    <div class="drop" id="drop">
+      <div class="ic">⌖</div>
+      <div class="big">Drop images here, or click to browse</div>
+      <div class="small">JPG or PNG · up to 5 images · ~5MB each</div>
+    </div>
+    <input type="file" id="file" accept="image/*" multiple style="display:none"/>
+    <div class="prev-grid" id="prevGrid"></div>`;
+  const drop=el.querySelector("#drop"), file=el.querySelector("#file");
+  drop.onclick=()=>file.click();
+  drop.ondragover=e=>{e.preventDefault();drop.classList.add("drag")};
+  drop.ondragleave=()=>drop.classList.remove("drag");
+  drop.ondrop=e=>{e.preventDefault();drop.classList.remove("drag");handleFiles(e.dataTransfer.files,el)};
+  file.onchange=()=>{handleFiles(file.files,el);file.value="";};
+  renderPreviews(el);
+}
+function handleFiles(files,el){
+  for(const f of files){
+    if(state.references.length>=MAX_REFS){ alert("You can upload up to "+MAX_REFS+" images."); break; }
+    if(!f.type.startsWith("image/")) continue;
+    if(f.size>6*1024*1024){ alert("\""+f.name+"\" is too large — please use one under ~5MB."); continue; }
+    const r=new FileReader();
+    r.onload=()=>{ state.references.push({filename:f.name,mime:f.type,b64:r.result.split(",")[1]}); renderPreviews(el); };
+    r.readAsDataURL(f);
+  }
+}
+function renderPreviews(el){
+  const g=el.querySelector("#prevGrid"); if(!g) return;
+  g.innerHTML = state.references.map((im,i)=>`
+    <div class="prev-item">
+      <button class="prev-x" data-i="${i}" title="Remove" type="button">×</button>
+      <img src="data:${im.mime};base64,${im.b64}" alt="${im.filename}"/>
+      <div class="name">${im.filename}</div>
+    </div>`).join("");
+  g.querySelectorAll(".prev-x").forEach(b=>b.onclick=()=>{ state.references.splice(+b.dataset.i,1); renderPreviews(el); });
+}
+function renderBrands(el){
+  el.innerHTML=`<textarea id="ta" placeholder="e.g. Rolex Submariner, Tudor Black Bay, Omega Seamaster…">${state.brands}</textarea>`;
+  el.querySelector("#ta").oninput=e=>state.brands=e.target.value;
+}
+const MAX_MATERIALS = 3;
+function renderMaterials(el){
+  el.innerHTML=`
+    <input type="text" id="ssInput" class="ss-input2" placeholder="Search materials…" autocomplete="off"/>
+    <div class="ss-tags2" id="ssTags"></div>
+    <div class="ss-sugg" id="ssSugg"></div>
+    <div class="field-label" id="ssHint"></div>`;
+  const input=el.querySelector("#ssInput");
+
+  function remaining(q){
+    return MATERIALS.filter(m=>!state.materials.includes(m.n) && m.n.toLowerCase().includes(q.toLowerCase()));
+  }
+  function renderTags(){
+    const t=el.querySelector("#ssTags");
+    t.innerHTML=state.materials.map((n,i)=>{
+      const c=swatchFor(n);
+      const sw=c?`<span class="sw" style="background:${c}"></span>`:"";
+      return `<span class="ss-tag">${sw}${n}<button type="button" class="ss-x" data-i="${i}">×</button></span>`;
+    }).join("");
+    t.querySelectorAll(".ss-x").forEach(b=>b.onclick=()=>{state.materials.splice(+b.dataset.i,1);refresh();});
+  }
+  function renderSugg(){
+    const sugg=el.querySelector("#ssSugg"), q=input.value.trim();
+    // show suggestions before any pick, or whenever the user is typing; never once max reached
+    const show = state.materials.length<MAX_MATERIALS && (q!=="" || state.materials.length===0);
+    if(!show){ sugg.innerHTML=""; return; }
+    let html=remaining(q).map(m=>`<button type="button" class="sugg-chip" data-n="${m.n}"><span class="sw" style="background:${m.c}"></span>${m.n}</button>`).join("");
+    if(q && !MATERIALS.some(m=>m.n.toLowerCase()===q.toLowerCase()) && !state.materials.includes(q)){
+      const ac=cssColor(q);
+      const asw=ac?`<span class="sw" style="background:${ac}"></span>`:"";
+      html+=`<button type="button" class="sugg-chip add" data-n="${q}">${asw}Add “${q}”</button>`;
+    }
+    sugg.innerHTML=html;
+    sugg.querySelectorAll(".sugg-chip").forEach(b=>b.onmousedown=e=>{e.preventDefault();addItem(b.dataset.n);});
+  }
+  function addItem(n){
+    if(state.materials.length>=MAX_MATERIALS || !n) return;
+    if(!state.materials.includes(n)) state.materials.push(n);
+    input.value=""; refresh();
+  }
+  function hint(){
+    el.querySelector("#ssHint").textContent =
+      state.materials.length>=MAX_MATERIALS ? "Maximum of 3 reached." : `${state.materials.length} of ${MAX_MATERIALS} selected`;
+  }
+  function refresh(){ renderTags(); renderSugg(); hint(); drawWatch(); }
+
+  input.oninput=renderSugg;
+  input.onkeydown=e=>{
+    if(e.key==="Enter"){ e.preventDefault(); addItem(input.value.trim()); }
+    else if(e.key==="Backspace" && !input.value && state.materials.length){ state.materials.pop(); refresh(); }
+  };
+  refresh();
+}
+function renderStrap(el){
+  const items=["Leather","Rubber","Steel"];
+  const opts=items.map(k=>{
+    const sel=state.strap===k?"sel":"";
+    const d = k==="Steel"?"Steel bracelet — choose a style next":k==="Leather"?"Classic leather strap":"Sport rubber strap";
+    return `<div class="opt ${sel}" data-k="${k}"><div><div class="t">${k}</div><div class="d">${d}</div></div><span class="tick"></span></div>`;
+  }).join("");
+  el.innerHTML=`<div class="options">${opts}</div>`;
+  el.querySelectorAll(".opt").forEach(o=>o.onclick=()=>{
+    state.strap=o.dataset.k;
+    if(o.dataset.k!=="Steel")state.bracelet="";
+    renderStrap(el); drawWatch();
+  });
+}
+function renderBracelet(el){
+  const items=[["Jubilee","Five-piece links, dressy"],["Oyster","Three-piece links, sporty"],["President","Semi-circular links, formal"]];
+  const opts=items.map(([k,d])=>{
+    const sel=state.bracelet===k?"sel":"";
+    return `<div class="opt ${sel}" data-k="${k}"><div><div class="t">${k}</div><div class="d">${d}</div></div><span class="tick"></span></div>`;
+  }).join("");
+  el.innerHTML=`<div class="options">${opts}</div>`;
+  el.querySelectorAll(".opt").forEach(o=>o.onclick=()=>{state.bracelet=o.dataset.k;renderBracelet(el)});
+}
+function dialColor(name){ const d=DIALS.find(x=>x.n===name); return d?d.c:cssColor(name); }
+function renderDial(el){
+  el.innerHTML=`
+    <input type="text" id="dInput" class="ss-input2" placeholder="Search dial colours…" autocomplete="off"/>
+    <div class="ss-tags2" id="dTags"></div>
+    <div class="ss-sugg" id="dSugg"></div>`;
+  const input=el.querySelector("#dInput");
+
+  function remaining(q){ return DIALS.filter(d=>d.n!==state.dial && d.n.toLowerCase().includes(q.toLowerCase())); }
+  function renderTag(){
+    const t=el.querySelector("#dTags");
+    if(!state.dial){ t.innerHTML=""; return; }
+    const c=dialColor(state.dial); const sw=c?`<span class="sw" style="background:${c}"></span>`:"";
+    t.innerHTML=`<span class="ss-tag">${sw}${state.dial}<button type="button" class="ss-x" id="dClear">×</button></span>`;
+    el.querySelector("#dClear").onclick=()=>{state.dial="";refresh();};
+  }
+  function renderSugg(){
+    const sugg=el.querySelector("#dSugg"), q=input.value.trim();
+    const show = q!=="" || !state.dial;       // hide once chosen, until typing again
+    if(!show){ sugg.innerHTML=""; return; }
+    let html=remaining(q).map(d=>`<button type="button" class="sugg-chip" data-n="${d.n}"><span class="sw" style="background:${d.c}"></span>${d.n}</button>`).join("");
+    if(q && !DIALS.some(d=>d.n.toLowerCase()===q.toLowerCase()) && q.toLowerCase()!==state.dial.toLowerCase()){
+      const ac=cssColor(q); const asw=ac?`<span class="sw" style="background:${ac}"></span>`:"";
+      html+=`<button type="button" class="sugg-chip add" data-n="${q}">${asw}Add “${q}”</button>`;
+    }
+    sugg.innerHTML=html;
+    sugg.querySelectorAll(".sugg-chip").forEach(b=>b.onmousedown=e=>{e.preventDefault();pick(b.dataset.n);});
+  }
+  function pick(n){ if(!n) return; state.dial=n; input.value=""; refresh(); }
+  function refresh(){ renderTag(); renderSugg(); drawWatch(); }
+
+  input.oninput=renderSugg;
+  input.onkeydown=e=>{
+    if(e.key==="Enter"){ e.preventDefault(); pick(input.value.trim()); }
+    else if(e.key==="Backspace" && !input.value && state.dial){ state.dial=""; refresh(); }
+  };
+  refresh();
+}
+function renderNotes(el){
+  el.innerHTML=`<textarea id="ta" placeholder="Engraving, case size, deadline, budget, anything else…">${state.notes}</textarea>`;
+  el.querySelector("#ta").oninput=e=>state.notes=e.target.value;
+}
+function renderReview(el){
+  const row=(k,v)=>`<div class="review-row"><div class="k">${k}</div><div class="v ${v?"":"empty"}">${v||"—"}</div></div>`;
+  const price = state.movement ? PRICE[state.movement].label : "Select a movement";
+  el.innerHTML=`
+    <div class="review-list">
+      ${row("Name", state.name)}
+      ${row("Contact", [state.phone, state.instagram?("@"+state.instagram.replace(/^@/,"")):"", state.email].filter(Boolean).join("  ·  "))}
+      ${row("Movement", state.movement)}
+      ${row("Reference images", state.references.map(r=>r.filename).join(", "))}
+      ${row("Brands / models", state.brands)}
+      ${row("Colours & materials", state.materials.join(", "))}
+      ${row("Strap", state.strap)}
+      ${state.strap==="Steel"?row("Bracelet style", state.bracelet):""}
+      ${row("Dial colour", state.dial)}
+      ${row("Notes", state.notes)}
+    </div>
+    <div class="price-box"><div><div class="lab">Estimated price</div></div><div class="amt">${price}</div></div>
+    <div class="price-note">Estimate only. Final quote confirmed by the maker after reviewing your brief.</div>`;
+}
+
+/* ---------- live caption under the hero image ---------- */
+function drawWatch(){
+  const cap=document.getElementById("vcap");
+  if(!cap) return;
+  const bits=[state.movement.split(" ")[0], state.dial?state.dial+" dial":"", state.strap].filter(Boolean);
+  cap.textContent = bits.length?bits.join(" · "):"Your configuration";
+}
+
+/* ---------- required-field validation ---------- */
+function validateStep(step){
+  const err=document.getElementById("err");
+  let ok=true, msg="";
+  switch(step.id){
+    case "contact":
+      if(!state.name.trim()){ ok=false; msg="Please enter your name."; }
+      else if(!(state.phone.trim()||state.instagram.trim()||state.email.trim())){ ok=false; msg="Please add at least one contact — phone, Instagram, or email."; }
+      break;
+    case "movement":  ok=!!state.movement;            msg="Please choose a movement."; break;
+    case "reference": ok=state.references.length>0;    msg="Please upload at least one reference image."; break;
+    case "brands":    ok=state.brands.trim().length>0; msg="Please name at least one brand or model."; break;
+    case "materials": ok=state.materials.length>0;     msg="Please select at least one colour or material."; break;
+    case "strap":     ok=!!state.strap;                msg="Please choose a strap material."; break;
+    case "bracelet":  ok=!!state.bracelet;             msg="Please choose a bracelet style."; break;
+    case "dial":      ok=!!state.dial;                 msg="Please choose a dial colour."; break;
+    case "notes":     ok=state.notes.trim().length>0;  msg="Please add a note for the maker."; break;
+  }
+  if(err) err.textContent = ok ? "" : msg;
+  return ok;
+}
+
+/* ---------- submit ---------- */
+async function submitForm(){
+  // safety net — every field is required
+  const missing=[];
+  if(!state.name.trim()) missing.push("your name");
+  if(!(state.phone.trim()||state.instagram.trim()||state.email.trim())) missing.push("a contact method");
+  if(!state.movement) missing.push("movement");
+  if(!state.references.length) missing.push("reference image");
+  if(!state.brands.trim()) missing.push("brands/models");
+  if(!state.materials.length) missing.push("colours & materials");
+  if(!state.strap) missing.push("strap");
+  if(state.strap==="Steel" && !state.bracelet) missing.push("bracelet style");
+  if(!state.dial) missing.push("dial colour");
+  if(!state.notes.trim()) missing.push("notes");
+  if(missing.length){ alert("Please complete: "+missing.join(", ")+"."); return; }
+  const btn=document.getElementById("sendBtn"); const sending=document.getElementById("sending");
+  btn.disabled=true; sending.style.display="block";
+  const payload={
+    submitted_at:new Date().toISOString(),
+    name:state.name, phone:state.phone, instagram:state.instagram, email:state.email,
+    movement:state.movement,
+    estimated_price: PRICE[state.movement]?PRICE[state.movement].label:"",
+    brands:state.brands, materials:state.materials.join(", "),
+    strap:state.strap, bracelet:state.bracelet, dial:state.dial, notes:state.notes,
+    references:state.references
+  };
+  if(!APPS_SCRIPT_URL){
+    console.log("DEMO MODE — submission payload:", payload);
+    setTimeout(done, 700); return;
+  }
+  try{
+    await fetch(APPS_SCRIPT_URL,{
+      method:"POST",
+      headers:{"Content-Type":"text/plain;charset=utf-8"}, // simple request → no CORS preflight
+      body:JSON.stringify(payload)
+    });
+    done();
+  }catch(err){
+    console.error(err);
+    alert("Sorry — something went wrong sending your brief. Please try again, or contact us directly.");
+    btn.disabled=false; sending.style.display="none";
+  }
+}
+function done(){
+  document.getElementById("config").style.display="none";
+  const t=document.getElementById("thanks"); t.classList.remove("hide"); t.style.display="flex";
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+/* wire the final button to the SVARTS site */
+document.getElementById("siteBtn").href = SITE_URL || "#";
+</script>
+</body>
+</html>
