@@ -614,15 +614,17 @@ function renderDial(el){
   refresh();
 }
 const SIZES = ["36mm","38mm","40mm","41mm","42mm","44mm"];
+const WRIST_SIZES = ["14 cm","15 cm","16 cm","17 cm","18 cm","19 cm","20 cm+"];
 function renderSizing(el){
-  const chips=SIZES.map(s=>`<div class="chip ${state.size===s?"sel":""}" data-s="${s}">${s}</div>`).join("");
+  const sizeChips=SIZES.map(s=>`<div class="chip ${state.size===s?"sel":""}" data-s="${s}">${s}</div>`).join("");
+  const wristChips=WRIST_SIZES.map(w=>`<div class="chip ${state.wrist===w?"sel":""}" data-w="${w}">${w}</div>`).join("");
   el.innerHTML=`
     <div class="field-label">Case diameter *</div>
-    <div class="chips">${chips}</div>
-    <div class="field-label">Wrist size / circumference (optional)</div>
-    <input type="text" id="wrist" placeholder="e.g. 17 cm, or 'medium'"/>`;
-  el.querySelectorAll(".chip").forEach(c=>c.onclick=()=>{state.size=c.dataset.s;renderSizing(el);});
-  const w=el.querySelector("#wrist"); w.value=state.wrist; w.oninput=e=>state.wrist=e.target.value;
+    <div class="chips">${sizeChips}</div>
+    <div class="field-label" style="margin-top:18px">Wrist size <span style="font-weight:400">(optional)</span></div>
+    <div class="chips">${wristChips}</div>`;
+  el.querySelectorAll("[data-s]").forEach(c=>c.onclick=()=>{state.size=c.dataset.s;renderSizing(el);});
+  el.querySelectorAll("[data-w]").forEach(c=>c.onclick=()=>{ state.wrist=(state.wrist===c.dataset.w?"":c.dataset.w); renderSizing(el); });
 }
 function renderNotes(el){
   el.innerHTML=`<textarea id="ta" placeholder="Engraving, case size, deadline, budget, anything else…">${state.notes}</textarea>`;
@@ -661,6 +663,7 @@ function drawWatch(){
 /* ---------- required-field validation ---------- */
 function setErr(id,on){ var el=document.getElementById(id); if(el) el.classList.toggle("input-err",!!on); }
 function isEmail(v){ return /^\S+@\S+\.\S+$/.test(v.trim()); }
+function isPhone(v){ v=v.trim(); if(!/^\+?[\d\s().-]{6,}$/.test(v)) return false; var d=v.replace(/\D/g,""); return d.length>=7 && d.length<=15; }
 const COMMON_DOMAINS = ["gmail.com","googlemail.com","yahoo.com","yahoo.co.uk","hotmail.com","hotmail.co.uk","outlook.com","live.com","msn.com","icloud.com","me.com","mac.com","aol.com","protonmail.com","proton.me","mail.com","gmx.com","zoho.com"];
 function lev(a,b){var m=a.length,n=b.length,dp=[];for(var i=0;i<=m;i++)dp[i]=[i];for(var j=0;j<=n;j++)dp[0][j]=j;for(i=1;i<=m;i++)for(j=1;j<=n;j++)dp[i][j]=Math.min(dp[i-1][j]+1,dp[i][j-1]+1,dp[i-1][j-1]+(a.charAt(i-1)===b.charAt(j-1)?0:1));return dp[m][n];}
 function emailTypo(email){var p=email.trim().toLowerCase().split("@");if(p.length<2)return null;var d=p[1];if(!d||COMMON_DOMAINS.indexOf(d)>-1)return null;var best=null,bd=99;COMMON_DOMAINS.forEach(function(c){var dist=lev(d,c);if(dist<bd){bd=dist;best=c;}});return (bd>0&&bd<=2)?best:null;}
@@ -671,11 +674,13 @@ function validateStep(step){
   switch(step.id){
     case "contact": {
       var nameBad=!state.name.trim();
-      var phoneBad=!state.phone.trim();
+      var phoneEmpty=!state.phone.trim();
+      var phoneBadFmt=!phoneEmpty && !isPhone(state.phone);
       var emailBad=!!state.email.trim() && !isEmail(state.email);
       var typo=(!emailBad && state.email.trim()) ? emailTypo(state.email) : null;
       if(nameBad){ ok=false; msg="Please enter your name."; setErr("cName",true); }
-      else if(phoneBad){ ok=false; msg="Please enter a cellphone number."; setErr("cPhone",true); }
+      else if(phoneEmpty){ ok=false; msg="Please enter a cellphone number."; setErr("cPhone",true); }
+      else if(phoneBadFmt){ ok=false; msg="Please enter a valid phone number (you can include the country code, e.g. +27…)."; setErr("cPhone",true); }
       else if(emailBad){ ok=false; msg="That email doesn't look right — please check it."; setErr("cEmail",true); }
       else if(typo){ ok=false; msg="Please check your email — did you mean @"+typo+"?"; setErr("cEmail",true); }
       break;
