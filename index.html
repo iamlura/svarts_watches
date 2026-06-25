@@ -234,6 +234,8 @@
   .hero-title{font-family:'Libre Baskerville',serif;font-weight:700;font-size:clamp(30px,5.25vw,63px);line-height:1.04;letter-spacing:.04em}
   .hero-sub{color:var(--ink-soft);font-size:14px;margin:16px 0 28px;max-width:48ch}
   .sending{display:none;font-size:13px;color:var(--ink-soft);margin-top:14px}
+  .site-link{display:inline-block;margin-top:30px;font-size:13px;color:var(--ink-soft);text-decoration:underline;letter-spacing:.02em}
+  .site-link:hover{color:var(--ink)}
 
   /* full-screen sending overlay */
   .overlay{position:fixed;inset:0;background:rgba(238,240,243,.3);
@@ -292,8 +294,9 @@
     <p class="hero-sub">Your brief is with the maker. Book a consultation below, or we'll be in touch by email with a firm quote.</p>
     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
       <a class="btn btn-primary" id="bookBtn" href="#" target="_blank" rel="noopener">Book a consultation &nbsp;→</a>
-      <a class="btn btn-ghost" id="siteBtn" href="#">SVARTS website</a>
+      <button class="btn btn-ghost" id="restartBtn" onclick="location.reload()">Back to start &nbsp;→</button>
     </div>
+    <a id="siteLink" class="site-link" href="#">SVARTS website</a>
   </section>
 
 <script>
@@ -749,7 +752,7 @@ function done(){
 }
 
 /* wire the thank-you buttons */
-document.getElementById("siteBtn").href = SITE_URL || "#";
+document.getElementById("siteLink").href = SITE_URL || "#";
 (function(){
   var b=document.getElementById("bookBtn");
   if(BOOKING_URL){ b.href=BOOKING_URL; b.target="_blank"; }
