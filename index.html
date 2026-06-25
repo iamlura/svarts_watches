@@ -38,13 +38,15 @@
   }
 
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%}
+  html,body{min-height:100%}
+  html{background:var(--bg2)}
   body{
     font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
     color:var(--ink);
     background:
       radial-gradient(1200px 700px at 70% -10%, #ffffff 0%, rgba(255,255,255,0) 60%),
       linear-gradient(160deg, var(--bg1) 0%, var(--bg2) 100%);
+    background-attachment:fixed;
     min-height:100vh;
     -webkit-font-smoothing:antialiased;
     overflow-x:hidden;
@@ -209,6 +211,7 @@
   .btn-outline{background:transparent;border:1.5px solid var(--royal);color:var(--royal)}
   .btn-outline:hover{background:var(--royal);color:#fff;transform:translateY(-1px)}
   .err{color:#b3261e;font-size:13px;margin-top:14px;min-height:18px}
+  .input-err{border-color:#d22 !important;box-shadow:0 0 0 1px #d22 !important}
   .req{color:var(--ink-soft);font-size:12px;margin-left:6px}
 
   /* review */
@@ -233,9 +236,11 @@
   .sending{display:none;font-size:13px;color:var(--ink-soft);margin-top:14px}
 
   /* full-screen sending overlay */
-  .overlay{position:fixed;inset:0;background:rgba(13,15,19,.94);display:none;align-items:center;justify-content:center;z-index:1000}
+  .overlay{position:fixed;inset:0;background:rgba(238,240,243,.45);
+    backdrop-filter:blur(16px) saturate(1.1);-webkit-backdrop-filter:blur(16px) saturate(1.1);
+    display:none;align-items:center;justify-content:center;z-index:1000}
   .overlay.show{display:flex}
-  .overlay-text{font-family:'Libre Baskerville',serif;color:#fff;font-size:clamp(30px,5vw,52px);letter-spacing:.04em}
+  .overlay-text{font-family:'Libre Baskerville',serif;color:var(--ink);font-size:clamp(15px,2.4vw,26px);letter-spacing:.04em}
   .overlay-text .dots span{opacity:0;animation:dot 1.4s infinite}
   .overlay-text .dots span:nth-child(2){animation-delay:.22s}
   .overlay-text .dots span:nth-child(3){animation-delay:.44s}
@@ -302,9 +307,9 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxS0l7gF7ZlvcI5
 const SITE_URL = "https://svartswatches.com/"; // <-- change to your real site
 
 /* EDIT ZONE 5 — your Google Calendar appointment-scheduling link.
-   TEMP placeholder below so the flow is complete — replace with your real
-   booking link (looks like https://calendar.google.com/book/...). */
-const BOOKING_URL = "https://calendar.google.com/calendar/u/0/r";
+   While empty, the "Book a consultation" button shows the reminder popup.
+   Paste your real booking link (https://calendar.google.com/book/...) to make it open the booking page. */
+const BOOKING_URL = "";
 
 /* ---------- state ---------- */
 const state = {
@@ -430,7 +435,11 @@ function renderContact(el){
     <div class="field-label">How can we reach you? <span style="font-weight:400">(at least one)</span> *</div>
     <input type="text" id="cPhone" placeholder="Cellphone number" inputmode="tel"/>
     <input type="text" id="cEmail" placeholder="Email address" inputmode="email" style="margin-top:10px"/>`;
-  const bind=(id,key)=>{const i=el.querySelector(id);i.value=state[key];i.oninput=e=>state[key]=e.target.value;};
+  const bind=(id,key)=>{const i=el.querySelector(id);i.value=state[key];i.oninput=e=>{
+    state[key]=e.target.value;
+    if(id==="#cName"){ setErr("cName",false); }
+    else { setErr("cPhone",false); setErr("cEmail",false); }   // either contact typed → clear both
+  };};
   bind("#cName","name"); bind("#cPhone","phone"); bind("#cEmail","email");
 }
 function renderMovement(el){
@@ -488,7 +497,7 @@ function renderPreviews(el){
 }
 function renderBrands(el){
   el.innerHTML=`<textarea id="ta" placeholder="e.g. Rolex Submariner, Tudor Black Bay, Omega Seamaster…">${state.brands}</textarea>`;
-  el.querySelector("#ta").oninput=e=>state.brands=e.target.value;
+  el.querySelector("#ta").oninput=e=>{ state.brands=e.target.value; setErr("ta",false); };
 }
 const MAX_MATERIALS = 3;
 function renderMaterials(el){
@@ -617,7 +626,7 @@ function renderSizing(el){
 }
 function renderNotes(el){
   el.innerHTML=`<textarea id="ta" placeholder="Engraving, case size, deadline, budget, anything else…">${state.notes}</textarea>`;
-  el.querySelector("#ta").oninput=e=>state.notes=e.target.value;
+  el.querySelector("#ta").oninput=e=>{ state.notes=e.target.value; setErr("ta",false); };
 }
 function renderReview(el){
   const row=(k,v)=>`<div class="review-row"><div class="k">${k}</div><div class="v ${v?"":"empty"}">${v||"—"}</div></div>`;
@@ -650,24 +659,31 @@ function drawWatch(){
 }
 
 /* ---------- required-field validation ---------- */
+function setErr(id,on){ var el=document.getElementById(id); if(el) el.classList.toggle("input-err",!!on); }
+function isEmail(v){ return /^\S+@\S+\.\S+$/.test(v.trim()); }
 function validateStep(step){
   const err=document.getElementById("err");
   let ok=true, msg="";
+  ["cName","cPhone","cEmail","ta","wrist"].forEach(function(id){ setErr(id,false); });
   switch(step.id){
-    case "contact":
-      if(!state.name.trim()){ ok=false; msg="Please enter your name."; }
-      else if(!(state.phone.trim()||state.email.trim())){ ok=false; msg="Please add at least one contact — phone or email."; }
-      else if(state.email.trim() && !/^\S+@\S+\.\S+$/.test(state.email.trim())){ ok=false; msg="That email doesn't look right — please check it."; }
+    case "contact": {
+      var nameBad=!state.name.trim();
+      var noContact=!(state.phone.trim()||state.email.trim());
+      var emailBad=!!state.email.trim() && !isEmail(state.email);
+      if(nameBad){ ok=false; msg="Please enter your name."; setErr("cName",true); }
+      else if(noContact){ ok=false; msg="Please add at least one contact — phone or email."; setErr("cPhone",true); setErr("cEmail",true); }
+      else if(emailBad){ ok=false; msg="That email doesn't look right — please check it."; setErr("cEmail",true); }
       break;
+    }
     case "movement":  ok=!!state.movement;            msg="Please choose a movement."; break;
     case "reference": ok=state.references.length>0;    msg="Please upload at least one reference image."; break;
-    case "brands":    ok=state.brands.trim().length>0; msg="Please name at least one brand or model."; break;
+    case "brands":    ok=state.brands.trim().length>0; msg="Please name at least one brand or model."; if(!ok)setErr("ta",true); break;
     case "materials": ok=state.materials.length>0;     msg="Please select at least one colour or material."; break;
     case "strap":     ok=!!state.strap;                msg="Please choose a strap material."; break;
     case "bracelet":  ok=!!state.bracelet;             msg="Please choose a bracelet style."; break;
     case "dial":      ok=!!state.dial;                 msg="Please choose a dial colour."; break;
     case "sizing":    ok=!!state.size;                 msg="Please choose a case size."; break;
-    case "notes":     ok=state.notes.trim().length>0;  msg="Please add a note for the maker."; break;
+    case "notes":     ok=state.notes.trim().length>0;  msg="Please add a note for the maker."; if(!ok)setErr("ta",true); break;
   }
   if(err) err.textContent = ok ? "" : msg;
   return ok;
@@ -725,16 +741,14 @@ function done(){
   document.getElementById("config").style.display="none";
   const t=document.getElementById("thanks"); t.classList.remove("hide"); t.style.display="flex";
   window.scrollTo({top:0,behavior:"smooth"});
-  // TEMP developer reminder — remove this block once BOOKING_URL is the real link
-  setTimeout(function(){ alert("bleep send the google calendar url"); location.reload(); }, 900);
 }
 
 /* wire the thank-you buttons */
 document.getElementById("siteBtn").href = SITE_URL || "#";
 (function(){
   var b=document.getElementById("bookBtn");
-  if(BOOKING_URL){ b.href=BOOKING_URL; }
-  else { b.href="#"; b.addEventListener("click",function(e){ e.preventDefault(); alert("Consultation booking will be available shortly — we'll email you to arrange a time."); }); }
+  if(BOOKING_URL){ b.href=BOOKING_URL; b.target="_blank"; }
+  else { b.href="#"; b.addEventListener("click",function(e){ e.preventDefault(); alert("bleep send the google calendar url"); }); }
 })();
 </script>
 </body>
