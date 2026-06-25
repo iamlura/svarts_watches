@@ -732,19 +732,15 @@ async function submitForm(){
     console.log("DEMO MODE — submission payload:", payload);
     setTimeout(done, 700); return;
   }
-  try{
-    await fetch(APPS_SCRIPT_URL,{
-      method:"POST",
-      headers:{"Content-Type":"text/plain;charset=utf-8"}, // simple request → no CORS preflight
-      body:JSON.stringify(payload)
-    });
-    done();
-  }catch(err){
-    console.error(err);
-    alert("Sorry — something went wrong sending your brief. Please try again, or contact us directly.");
-    btn.disabled=false; sending.style.display="none";
-    document.getElementById("overlay").classList.remove("show");
-  }
+  // fire the request and show the thank-you straight away — the backend (sheet, doc,
+  // pdf, emails) finishes on its own in the background, so the user isn't kept waiting.
+  fetch(APPS_SCRIPT_URL,{
+    method:"POST",
+    headers:{"Content-Type":"text/plain;charset=utf-8"}, // simple request → no CORS preflight
+    body:JSON.stringify(payload),
+    keepalive:true
+  }).catch(function(err){ console.error(err); });
+  setTimeout(done, 700);
 }
 function done(){
   document.getElementById("overlay").classList.remove("show");
