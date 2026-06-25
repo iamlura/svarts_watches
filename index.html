@@ -661,6 +661,9 @@ function drawWatch(){
 /* ---------- required-field validation ---------- */
 function setErr(id,on){ var el=document.getElementById(id); if(el) el.classList.toggle("input-err",!!on); }
 function isEmail(v){ return /^\S+@\S+\.\S+$/.test(v.trim()); }
+const COMMON_DOMAINS = ["gmail.com","googlemail.com","yahoo.com","yahoo.co.uk","hotmail.com","hotmail.co.uk","outlook.com","live.com","msn.com","icloud.com","me.com","mac.com","aol.com","protonmail.com","proton.me","mail.com","gmx.com","zoho.com"];
+function lev(a,b){var m=a.length,n=b.length,dp=[];for(var i=0;i<=m;i++)dp[i]=[i];for(var j=0;j<=n;j++)dp[0][j]=j;for(i=1;i<=m;i++)for(j=1;j<=n;j++)dp[i][j]=Math.min(dp[i-1][j]+1,dp[i][j-1]+1,dp[i-1][j-1]+(a.charAt(i-1)===b.charAt(j-1)?0:1));return dp[m][n];}
+function emailTypo(email){var p=email.trim().toLowerCase().split("@");if(p.length<2)return null;var d=p[1];if(!d||COMMON_DOMAINS.indexOf(d)>-1)return null;var best=null,bd=99;COMMON_DOMAINS.forEach(function(c){var dist=lev(d,c);if(dist<bd){bd=dist;best=c;}});return (bd>0&&bd<=2)?best:null;}
 function validateStep(step){
   const err=document.getElementById("err");
   let ok=true, msg="";
@@ -670,9 +673,11 @@ function validateStep(step){
       var nameBad=!state.name.trim();
       var noContact=!(state.phone.trim()||state.email.trim());
       var emailBad=!!state.email.trim() && !isEmail(state.email);
+      var typo=(!emailBad && state.email.trim()) ? emailTypo(state.email) : null;
       if(nameBad){ ok=false; msg="Please enter your name."; setErr("cName",true); }
       else if(noContact){ ok=false; msg="Please add at least one contact — phone or email."; setErr("cPhone",true); setErr("cEmail",true); }
       else if(emailBad){ ok=false; msg="That email doesn't look right — please check it."; setErr("cEmail",true); }
+      else if(typo){ ok=false; msg="Please check your email — did you mean @"+typo+"?"; setErr("cEmail",true); }
       break;
     }
     case "movement":  ok=!!state.movement;            msg="Please choose a movement."; break;
