@@ -47,7 +47,7 @@
       linear-gradient(160deg, var(--bg1) 0%, var(--bg2) 100%);
     min-height:100vh;
     -webkit-font-smoothing:antialiased;
-    overflow:hidden;
+    overflow-x:hidden;
   }
 
   /* ---- Top bar ---- */
@@ -231,6 +231,15 @@
   .hero-title{font-family:'Libre Baskerville',serif;font-weight:700;font-size:clamp(30px,5.25vw,63px);line-height:1.04;letter-spacing:.04em}
   .hero-sub{color:var(--ink-soft);font-size:14px;margin:16px 0 28px;max-width:48ch}
   .sending{display:none;font-size:13px;color:var(--ink-soft);margin-top:14px}
+
+  /* full-screen sending overlay */
+  .overlay{position:fixed;inset:0;background:rgba(13,15,19,.94);display:none;align-items:center;justify-content:center;z-index:1000}
+  .overlay.show{display:flex}
+  .overlay-text{font-family:'Libre Baskerville',serif;color:#fff;font-size:clamp(30px,5vw,52px);letter-spacing:.04em}
+  .overlay-text .dots span{opacity:0;animation:dot 1.4s infinite}
+  .overlay-text .dots span:nth-child(2){animation-delay:.22s}
+  .overlay-text .dots span:nth-child(3){animation-delay:.44s}
+  @keyframes dot{0%,100%{opacity:0}50%{opacity:1}}
 </style>
 </head>
 <body>
@@ -268,6 +277,9 @@
     </div>
   </div>
 
+  <!-- SENDING OVERLAY -->
+  <div id="overlay" class="overlay"><div class="overlay-text">Sending<span class="dots"><span>.</span><span>.</span><span>.</span></span></div></div>
+
   <!-- THANKS -->
   <section class="center-screen hide" id="thanks">
     <div class="eyebrow">Received</div>
@@ -290,8 +302,9 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxS0l7gF7ZlvcI5
 const SITE_URL = "https://svartswatches.com/"; // <-- change to your real site
 
 /* EDIT ZONE 5 — your Google Calendar appointment-scheduling link.
-   Leave "" to hide the booking button until you have one. */
-const BOOKING_URL = "";
+   TEMP placeholder below so the flow is complete — replace with your real
+   booking link (looks like https://calendar.google.com/book/...). */
+const BOOKING_URL = "https://calendar.google.com/calendar/u/0/r";
 
 /* ---------- state ---------- */
 const state = {
@@ -644,6 +657,7 @@ function validateStep(step){
     case "contact":
       if(!state.name.trim()){ ok=false; msg="Please enter your name."; }
       else if(!(state.phone.trim()||state.email.trim())){ ok=false; msg="Please add at least one contact — phone or email."; }
+      else if(state.email.trim() && !/^\S+@\S+\.\S+$/.test(state.email.trim())){ ok=false; msg="That email doesn't look right — please check it."; }
       break;
     case "movement":  ok=!!state.movement;            msg="Please choose a movement."; break;
     case "reference": ok=state.references.length>0;    msg="Please upload at least one reference image."; break;
@@ -677,6 +691,7 @@ async function submitForm(){
   if(missing.length){ alert("Please complete: "+missing.join(", ")+"."); return; }
   const btn=document.getElementById("sendBtn"); const sending=document.getElementById("sending");
   btn.disabled=true; sending.style.display="block";
+  document.getElementById("overlay").classList.add("show");
   const payload={
     submitted_at:new Date().toISOString(),
     name:state.name, phone:state.phone, email:state.email,
@@ -702,17 +717,25 @@ async function submitForm(){
     console.error(err);
     alert("Sorry — something went wrong sending your brief. Please try again, or contact us directly.");
     btn.disabled=false; sending.style.display="none";
+    document.getElementById("overlay").classList.remove("show");
   }
 }
 function done(){
+  document.getElementById("overlay").classList.remove("show");
   document.getElementById("config").style.display="none";
   const t=document.getElementById("thanks"); t.classList.remove("hide"); t.style.display="flex";
   window.scrollTo({top:0,behavior:"smooth"});
+  // TEMP developer reminder — remove this block once BOOKING_URL is the real link
+  setTimeout(function(){ alert("bleep send the google calendar url"); location.reload(); }, 900);
 }
 
 /* wire the thank-you buttons */
 document.getElementById("siteBtn").href = SITE_URL || "#";
-(function(){ var b=document.getElementById("bookBtn"); if(BOOKING_URL){ b.href=BOOKING_URL; } else { b.style.display="none"; } })();
+(function(){
+  var b=document.getElementById("bookBtn");
+  if(BOOKING_URL){ b.href=BOOKING_URL; }
+  else { b.href="#"; b.addEventListener("click",function(e){ e.preventDefault(); alert("Consultation booking will be available shortly — we'll email you to arrange a time."); }); }
+})();
 </script>
 </body>
 </html>
