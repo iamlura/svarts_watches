@@ -247,6 +247,17 @@
   .overlay-text .dots span:nth-child(2){animation-delay:.22s}
   .overlay-text .dots span:nth-child(3){animation-delay:.44s}
   @keyframes dot{0%,100%{opacity:0}50%{opacity:1}}
+
+  /* sizing */
+  .sizing-wrap{display:grid;grid-template-columns:1fr 300px;gap:28px;align-items:start}
+  @media(max-width:760px){.sizing-wrap{grid-template-columns:1fr}}
+  .sizing-visual{background:var(--card);border-radius:var(--radius);padding:14px;box-shadow:0 2px 12px -6px rgba(20,24,29,.18)}
+  .sizing-visual svg{width:100%;height:auto;display:block}
+  .size-readout{text-align:center;font-size:12px;letter-spacing:.08em;color:var(--ink-soft);margin-top:8px;text-transform:uppercase}
+  .wrist-range{-webkit-appearance:none;appearance:none;width:100%;height:3px;border-radius:3px;background:var(--line);outline:none;margin:8px 0}
+  .wrist-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:20px;border-radius:50%;background:var(--royal);cursor:pointer;box-shadow:0 2px 8px -2px rgba(3,27,46,.6)}
+  .wrist-range::-moz-range-thumb{width:20px;height:20px;border:none;border-radius:50%;background:var(--royal);cursor:pointer}
+  .wrist-val{font-family:'Libre Baskerville',serif;font-size:18px;margin-top:2px}
 </style>
 </head>
 <body>
@@ -291,10 +302,9 @@
   <section class="center-screen hide" id="thanks">
     <div class="eyebrow">Received</div>
     <h1 class="hero-title">Thank you.</h1>
-    <p class="hero-sub">Your brief is with the maker. Book a consultation below, or we'll be in touch by email with a firm quote.</p>
+    <p class="hero-sub">Your brief is with the maker. We'll be in touch by email with a firm quote.</p>
     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
-      <a class="btn btn-primary" id="bookBtn" href="#" target="_blank" rel="noopener">Book a consultation</a>
-      <button class="btn btn-ghost" id="restartBtn" onclick="location.reload()">Back to start</button>
+      <button class="btn btn-primary" id="restartBtn" onclick="location.reload()">Back to start</button>
     </div>
     <a id="siteLink" class="site-link" href="#">SVARTS website</a>
   </section>
@@ -309,22 +319,17 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxS0l7gF7ZlvcI5
 /* EDIT ZONE 2 — the SVARTS website the final button links to. */
 const SITE_URL = "https://svartswatches.com/"; // <-- change to your real site
 
-/* EDIT ZONE 5 — your Google Calendar appointment-scheduling link.
-   While empty, the "Book a consultation" button shows the reminder popup.
-   Paste your real booking link (https://calendar.google.com/book/...) to make it open the booking page. */
-const BOOKING_URL = "";
-
 /* ---------- state ---------- */
 const state = {
   name:"", phone:"", email:"",
-  movement:"", references:[],
+  movement:"", complication:"", references:[],
   brands:"", materials:[], strap:"", bracelet:"", dial:"", size:"", wrist:"", notes:""
 };
 
 const PRICE = {
-  "Quartz / Chronograph": {label:"R2,500 – R3,500", hint:"from R2,500"},
-  "Mechanical (automatic or hand-wound)": {label:"R4,000 – R4,500", hint:"from R4,000"},
-  "GMT automatic": {label:"R5,000 and up", hint:"from R5,000"}
+  "Quartz": {label:"R2,500 – R3,500", hint:"from R2,500"},
+  "Automatic": {label:"R4,000 – R4,500", hint:"from R4,000"},
+  "Hand wound": {label:"R4,000 – R4,500", hint:"from R4,000"}
 };
 
 const MATERIALS = [
@@ -333,7 +338,8 @@ const MATERIALS = [
 ];
 const DIALS = [
   {n:"Black", c:"#1a1c20"},{n:"White", c:"#f4f4f4"},{n:"Silver", c:"#cfd3d9"},
-  {n:"Blue", c:"#2b4a7a"},{n:"Green", c:"#2f5d45"},{n:"Champagne", c:"#e6cf9c"},{n:"Salmon", c:"#e7a98c"}
+  {n:"Blue", c:"#2b4a7a"},{n:"Green", c:"#2f5d45"},{n:"Champagne", c:"#e6cf9c"},{n:"Salmon", c:"#e7a98c"},
+  {n:"Not sure", c:null}
 ];
 const STRAP_COLOR = {Leather:"#6a4a32", Rubber:"#1b1d22", Steel:"#c8ccd2"};
 
@@ -355,12 +361,16 @@ const steps = [
    sub:"So we can reach you about your brief.", render:renderContact},
   {id:"movement", eyebrow:"Step 02", title:"Choose the movement.",
    sub:"This is the heart of the watch and the main driver of price.", render:renderMovement},
+  {id:"complication", eyebrow:"Step 02b", title:"Complication.",
+   sub:"Dial layout and seconds style.", render:renderComplication,
+   when:()=> state.movement==="Quartz"||state.movement==="Automatic"},
   {id:"reference", eyebrow:"Step 02", title:"Show us a reference.",
    sub:"Upload an image of a watch or style you love.", render:renderReference},
   {id:"brands", eyebrow:"Step 03", title:"Brands or models you like.",
    sub:"List any references — e.g. Rolex Submariner, Omega, Tudor.", render:renderBrands},
-  {id:"materials", eyebrow:"Step 04", title:"Favourite colours & materials.",
-   sub:"Pick any that appeal. Add your own in the notes if needed.", render:renderMaterials},
+  {id:"materials", eyebrow:"Step 04", title:"Case material.",
+   sub:"Choose the metal for the case.", render:renderMaterials,
+   when:()=> state.movement==="Quartz"||state.movement==="Automatic"},
   {id:"strap", eyebrow:"Step 05", title:"Strap material.",
    sub:"How should it sit on the wrist?", render:renderStrap},
   {id:"bracelet", eyebrow:"Step 05b", title:"Bracelet style.",
@@ -442,20 +452,48 @@ function renderContact(el){
   const bind=(id,key,errId)=>{const i=el.querySelector(id);i.value=state[key];i.oninput=e=>{ state[key]=e.target.value; setErr(errId,false); };};
   bind("#cName","name","cName"); bind("#cPhone","phone","cPhone"); bind("#cEmail","email","cEmail");
 }
+const MOVEMENTS=[
+  ["Quartz","Battery powered — precise, low maintenance"],
+  ["Automatic","Self-winding mechanical movement"],
+  ["Hand wound","Manual-wind mechanical movement"]
+];
 function renderMovement(el){
-  const opts=Object.keys(PRICE).map(k=>{
+  const opts=MOVEMENTS.map(([k,desc])=>{
     const sel = state.movement===k ? "sel":"";
-    const desc = k.startsWith("Quartz") ? "Quartz / chronograph — precise, low maintenance"
-      : k.startsWith("Mechanical") ? "Automatic or hand-wound mechanical"
-      : "Dual time-zone GMT, automatic";
     return `<div class="opt ${sel}" data-k="${k}">
       <div><div class="t">${k}</div><div class="d">${desc}</div></div>
       <span class="tick"></span></div>`;
   }).join("");
   el.innerHTML=`<div class="options">${opts}</div>`;
   el.querySelectorAll(".opt").forEach(o=>o.onclick=()=>{
-    state.movement=o.dataset.k; renderMovement(el); drawWatch();
+    if(state.movement!==o.dataset.k){ state.movement=o.dataset.k; state.complication=""; if(state.size && state.movement==="Hand wound" && !["40mm","44mm"].includes(state.size)) state.size=""; }
+    renderMovement(el); drawWatch();
   });
+}
+const COMPLICATIONS={
+  "Quartz":[
+    ["Normal","Ticking seconds"],
+    ["High beat","Sweeping seconds"],
+    ["Chronograph","Stopwatch sub-dials"],
+    ["GMT","Second time zone"]
+  ],
+  "Automatic":[
+    ["Skeleton","Open movement on show"],
+    ["Day and date","Day + date windows"],
+    ["Just date","Date window only"],
+    ["Open heart","Partial movement window"],
+    ["No date","Clean dial, no date"],
+    ["GMT","Second time zone"]
+  ]
+};
+function renderComplication(el){
+  const list=COMPLICATIONS[state.movement]||[];
+  const opts=list.map(([k,d])=>{
+    const sel=state.complication===k?"sel":"";
+    return `<div class="opt ${sel}" data-k="${k}"><div><div class="t">${k}</div><div class="d">${d}</div></div><span class="tick"></span></div>`;
+  }).join("");
+  el.innerHTML=`<div class="options">${opts}</div>`;
+  el.querySelectorAll(".opt").forEach(o=>o.onclick=()=>{state.complication=o.dataset.k;renderComplication(el);});
 }
 const MAX_REFS = 5;
 function renderReference(el){
@@ -499,58 +537,21 @@ function renderBrands(el){
   el.innerHTML=`<textarea id="ta" placeholder="e.g. Rolex Submariner, Tudor Black Bay, Omega Seamaster…">${state.brands}</textarea>`;
   el.querySelector("#ta").oninput=e=>{ state.brands=e.target.value; setErr("ta",false); };
 }
-const MAX_MATERIALS = 3;
+const CASE_MATERIALS=[
+  {n:"Stainless steel", c:"#c8ccd2"},
+  {n:"Stainless steel - gold", c:"linear-gradient(90deg,#c8ccd2 50%,#d9b15a 50%)"},
+  {n:"Stainless Steel - PVD Black", c:"#1b1d22"},
+  {n:"Titanium", c:"#9aa0a8"}
+];
 function renderMaterials(el){
-  el.innerHTML=`
-    <input type="text" id="ssInput" class="ss-input2" placeholder="Search materials…" autocomplete="off"/>
-    <div class="ss-tags2" id="ssTags"></div>
-    <div class="ss-sugg" id="ssSugg"></div>
-    <div class="field-label" id="ssHint"></div>`;
-  const input=el.querySelector("#ssInput");
-
-  function remaining(q){
-    return MATERIALS.filter(m=>!state.materials.includes(m.n) && m.n.toLowerCase().includes(q.toLowerCase()));
-  }
-  function renderTags(){
-    const t=el.querySelector("#ssTags");
-    t.innerHTML=state.materials.map((n,i)=>{
-      const c=swatchFor(n);
-      const sw=c?`<span class="sw" style="background:${c}"></span>`:"";
-      return `<span class="ss-tag">${sw}${n}<button type="button" class="ss-x" data-i="${i}">×</button></span>`;
-    }).join("");
-    t.querySelectorAll(".ss-x").forEach(b=>b.onclick=()=>{state.materials.splice(+b.dataset.i,1);refresh();});
-  }
-  function renderSugg(){
-    const sugg=el.querySelector("#ssSugg"), q=input.value.trim();
-    // show suggestions before any pick, or whenever the user is typing; never once max reached
-    const show = state.materials.length<MAX_MATERIALS && (q!=="" || state.materials.length===0);
-    if(!show){ sugg.innerHTML=""; return; }
-    let html=remaining(q).map(m=>`<button type="button" class="sugg-chip" data-n="${m.n}"><span class="sw" style="background:${m.c}"></span>${m.n}</button>`).join("");
-    if(q && !MATERIALS.some(m=>m.n.toLowerCase()===q.toLowerCase()) && !state.materials.includes(q)){
-      const ac=cssColor(q);
-      const asw=ac?`<span class="sw" style="background:${ac}"></span>`:"";
-      html+=`<button type="button" class="sugg-chip add" data-n="${q}">${asw}Add “${q}”</button>`;
-    }
-    sugg.innerHTML=html;
-    sugg.querySelectorAll(".sugg-chip").forEach(b=>b.onmousedown=e=>{e.preventDefault();addItem(b.dataset.n);});
-  }
-  function addItem(n){
-    if(state.materials.length>=MAX_MATERIALS || !n) return;
-    if(!state.materials.includes(n)) state.materials.push(n);
-    input.value=""; refresh();
-  }
-  function hint(){
-    el.querySelector("#ssHint").textContent =
-      state.materials.length>=MAX_MATERIALS ? "Maximum of 3 reached." : `${state.materials.length} of ${MAX_MATERIALS} selected`;
-  }
-  function refresh(){ renderTags(); renderSugg(); hint(); drawWatch(); }
-
-  input.oninput=renderSugg;
-  input.onkeydown=e=>{
-    if(e.key==="Enter"){ e.preventDefault(); addItem(input.value.trim()); }
-    else if(e.key==="Backspace" && !input.value && state.materials.length){ state.materials.pop(); refresh(); }
-  };
-  refresh();
+  const chips=CASE_MATERIALS.map(m=>{
+    const sel=state.materials.includes(m.n)?"sel":"";
+    return `<div class="chip ${sel}" data-n="${m.n}"><span class="sw" style="background:${m.c}"></span>${m.n}</div>`;
+  }).join("");
+  el.innerHTML=`<div class="chips">${chips}</div>`;
+  el.querySelectorAll("[data-n]").forEach(c=>c.onclick=()=>{
+    state.materials=[c.dataset.n]; renderMaterials(el); drawWatch();
+  });
 }
 function renderStrap(el){
   const items=["Leather","Rubber","Steel"];
@@ -595,7 +596,7 @@ function renderDial(el){
     const sugg=el.querySelector("#dSugg"), q=input.value.trim();
     const show = q!=="" || !state.dial;       // hide once chosen, until typing again
     if(!show){ sugg.innerHTML=""; return; }
-    let html=remaining(q).map(d=>`<button type="button" class="sugg-chip" data-n="${d.n}"><span class="sw" style="background:${d.c}"></span>${d.n}</button>`).join("");
+    let html=remaining(q).map(d=>{const sw=d.c?`<span class="sw" style="background:${d.c}"></span>`:"";return `<button type="button" class="sugg-chip" data-n="${d.n}">${sw}${d.n}</button>`;}).join("");
     if(q && !DIALS.some(d=>d.n.toLowerCase()===q.toLowerCase()) && q.toLowerCase()!==state.dial.toLowerCase()){
       const ac=cssColor(q); const asw=ac?`<span class="sw" style="background:${ac}"></span>`:"";
       html+=`<button type="button" class="sugg-chip add" data-n="${q}">${asw}Add “${q}”</button>`;
@@ -614,17 +615,53 @@ function renderDial(el){
   refresh();
 }
 const SIZES = ["36mm","38mm","40mm","41mm","42mm","44mm"];
-const WRIST_SIZES = ["14 cm","15 cm","16 cm","17 cm","18 cm","19 cm","20 cm+"];
+const HANDWOUND_SIZES = ["40mm","44mm"];
+function casesFor(){ return state.movement==="Hand wound"?HANDWOUND_SIZES:SIZES; }
+function wristCm(){ const v=parseFloat((state.wrist||"").replace(/[^\d.]/g,"")); return isNaN(v)?16:v; }
+function sizingDraw(){
+  const svg=document.getElementById("wristSvg"); if(!svg) return;
+  const scale=2.6;
+  const wPx=((wristCm()*10)/Math.PI)*scale;
+  const caseMm=state.size?parseFloat(state.size):40;
+  const cPx=caseMm*scale;
+  const cx=170, cy=130;
+  const armL=cx-wPx/2, armR=cx+wPx/2;
+  const strapW=Math.min(cPx*0.74, wPx*0.92);
+  const dash=state.size?"":"6 6";
+  const op=state.size?"1":"0.45";
+  svg.innerHTML=`
+    <line x1="${armL}" y1="6" x2="${armL}" y2="254" stroke="#16181d" stroke-width="1.4"/>
+    <line x1="${armR}" y1="6" x2="${armR}" y2="254" stroke="#16181d" stroke-width="1.4"/>
+    <rect x="${cx-strapW/2}" y="6" width="${strapW}" height="${Math.max(cy-cPx/2-6,0)}" fill="none" stroke="#16181d" stroke-width="1.2"/>
+    <rect x="${cx-strapW/2}" y="${cy+cPx/2}" width="${strapW}" height="${Math.max(254-(cy+cPx/2),0)}" fill="none" stroke="#16181d" stroke-width="1.2"/>
+    <circle cx="${cx}" cy="${cy}" r="${cPx/2}" fill="#ffffff" stroke="#16181d" stroke-width="1.6" stroke-dasharray="${dash}" opacity="${op}"/>
+    <circle cx="${cx}" cy="${cy}" r="${Math.max(cPx/2-7,4)}" fill="none" stroke="#c8ccd2" stroke-width="1"/>
+    <rect x="${cx+cPx/2}" y="${cy-3}" width="6" height="6" fill="#16181d"/>`;
+  const ro=document.getElementById("sizeReadout");
+  if(ro) ro.textContent=(state.size?state.size:"Select a case")+" · "+wristCm()+" cm wrist";
+}
 function renderSizing(el){
-  const sizeChips=SIZES.map(s=>`<div class="chip ${state.size===s?"sel":""}" data-s="${s}">${s}</div>`).join("");
-  const wristChips=WRIST_SIZES.map(w=>`<div class="chip ${state.wrist===w?"sel":""}" data-w="${w}">${w}</div>`).join("");
+  if(state.size && !casesFor().includes(state.size)) state.size="";
+  if(!state.wrist) state.wrist="16 cm";
+  const sizeChips=casesFor().map(s=>`<div class="chip ${state.size===s?"sel":""}" data-s="${s}">${s}</div>`).join("");
   el.innerHTML=`
-    <div class="field-label">Case diameter *</div>
-    <div class="chips">${sizeChips}</div>
-    <div class="field-label" style="margin-top:18px">Wrist size <span style="font-weight:400">(optional)</span></div>
-    <div class="chips">${wristChips}</div>`;
+    <div class="sizing-wrap">
+      <div class="sizing-controls">
+        <div class="field-label">Your wrist size <span style="font-weight:400">(optional)</span></div>
+        <input type="range" id="wristRange" class="wrist-range" min="12" max="22" step="0.5" value="${wristCm()}"/>
+        <div class="wrist-val" id="wristVal">${wristCm()} cm</div>
+        <div class="field-label" style="margin-top:20px">Case diameter *</div>
+        <div class="chips">${sizeChips}</div>
+      </div>
+      <div class="sizing-visual">
+        <svg id="wristSvg" viewBox="0 0 340 260" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div class="size-readout" id="sizeReadout"></div>
+      </div>
+    </div>`;
+  const range=el.querySelector("#wristRange");
+  range.oninput=()=>{ state.wrist=range.value+" cm"; el.querySelector("#wristVal").textContent=range.value+" cm"; sizingDraw(); };
   el.querySelectorAll("[data-s]").forEach(c=>c.onclick=()=>{state.size=c.dataset.s;renderSizing(el);});
-  el.querySelectorAll("[data-w]").forEach(c=>c.onclick=()=>{ state.wrist=(state.wrist===c.dataset.w?"":c.dataset.w); renderSizing(el); });
+  sizingDraw();
 }
 function renderNotes(el){
   el.innerHTML=`<textarea id="ta" placeholder="Engraving, case size, deadline, budget, anything else…">${state.notes}</textarea>`;
@@ -638,9 +675,10 @@ function renderReview(el){
       ${row("Name", state.name)}
       ${row("Contact", [state.phone, state.email].filter(Boolean).join("  ·  "))}
       ${row("Movement", state.movement)}
+      ${state.complication?row("Complication", state.complication):""}
       ${row("Reference images", state.references.map(r=>r.filename).join(", "))}
       ${row("Brands / models", state.brands)}
-      ${row("Colours & materials", state.materials.join(", "))}
+      ${state.materials.length?row("Case material", state.materials.join(", ")):""}
       ${row("Strap", state.strap)}
       ${state.strap==="Steel"?row("Bracelet style", state.bracelet):""}
       ${row("Dial colour", state.dial)}
@@ -686,14 +724,15 @@ function validateStep(step){
       break;
     }
     case "movement":  ok=!!state.movement;            msg="Please choose a movement."; break;
-    case "reference": ok=state.references.length>0;    msg="Please upload at least one reference image."; break;
+    case "complication": ok=!!state.complication;      msg="Please choose a complication."; break;
+    case "reference": ok=true; break;
     case "brands":    ok=state.brands.trim().length>0; msg="Please name at least one brand or model."; if(!ok)setErr("ta",true); break;
-    case "materials": ok=state.materials.length>0;     msg="Please select at least one colour or material."; break;
+    case "materials": ok=state.materials.length>0;     msg="Please choose a case material."; break;
     case "strap":     ok=!!state.strap;                msg="Please choose a strap material."; break;
     case "bracelet":  ok=!!state.bracelet;             msg="Please choose a bracelet style."; break;
     case "dial":      ok=!!state.dial;                 msg="Please choose a dial colour."; break;
     case "sizing":    ok=!!state.size;                 msg="Please choose a case size."; break;
-    case "notes":     ok=state.notes.trim().length>0;  msg="Please add a note for the maker."; if(!ok)setErr("ta",true); break;
+    case "notes":     ok=true; break;
   }
   if(err) err.textContent = ok ? "" : msg;
   return ok;
@@ -706,14 +745,13 @@ async function submitForm(){
   if(!state.name.trim()) missing.push("your name");
   if(!state.phone.trim()) missing.push("a phone number");
   if(!state.movement) missing.push("movement");
-  if(!state.references.length) missing.push("reference image");
+  if((state.movement==="Quartz"||state.movement==="Automatic") && !state.complication) missing.push("complication");
   if(!state.brands.trim()) missing.push("brands/models");
-  if(!state.materials.length) missing.push("colours & materials");
+  if((state.movement==="Quartz"||state.movement==="Automatic") && !state.materials.length) missing.push("case material");
   if(!state.strap) missing.push("strap");
   if(state.strap==="Steel" && !state.bracelet) missing.push("bracelet style");
   if(!state.dial) missing.push("dial colour");
   if(!state.size) missing.push("case size");
-  if(!state.notes.trim()) missing.push("notes");
   if(missing.length){ alert("Please complete: "+missing.join(", ")+"."); return; }
   const btn=document.getElementById("sendBtn"); const sending=document.getElementById("sending");
   btn.disabled=true; sending.style.display="block";
@@ -722,6 +760,7 @@ async function submitForm(){
     submitted_at:new Date().toISOString(),
     name:state.name, phone:state.phone, email:state.email,
     movement:state.movement,
+    complication:state.complication,
     estimated_price: PRICE[state.movement]?PRICE[state.movement].label:"",
     brands:state.brands, materials:state.materials.join(", "),
     strap:state.strap, bracelet:state.bracelet, dial:state.dial,
@@ -751,11 +790,7 @@ function done(){
 
 /* wire the thank-you buttons */
 document.getElementById("siteLink").href = SITE_URL || "#";
-(function(){
-  var b=document.getElementById("bookBtn");
-  if(BOOKING_URL){ b.href=BOOKING_URL; b.target="_blank"; }
-  else { b.href="#"; b.addEventListener("click",function(e){ e.preventDefault(); alert("bleep send the google calendar url"); }); }
-})();
+
 </script>
 </body>
 </html>
