@@ -769,15 +769,24 @@ async function submitForm(){
     console.log("DEMO MODE — submission payload:", payload);
     setTimeout(done, 700); return;
   }
-  // fire the request and show the thank-you straight away — the backend (sheet, doc,
-  // pdf, emails) finishes on its own in the background, so the user isn't kept waiting.
-  fetch(APPS_SCRIPT_URL,{
-    method:"POST",
-    headers:{"Content-Type":"text/plain;charset=utf-8"}, // simple request → no CORS preflight
-    body:JSON.stringify(payload),
-    keepalive:true
-  }).catch(function(err){ console.error(err); });
-  setTimeout(done, 700);
+  // wait for the upload to actually finish before showing the thank-you screen.
+  // (no keepalive — its 64KB body cap silently drops submissions that include images.)
+  try{
+    await fetch(APPS_SCRIPT_URL,{
+      method:"POST",
+      mode:"no-cors",
+      headers:{"Content-Type":"text/plain;charset=utf-8"}, // simple request → no CORS preflight
+      body:JSON.stringify(payload)
+    });
+  }catch(err){
+    console.error(err);
+    document.getElementById("overlay").classList.remove("show");
+    btn.disabled=false; sending.style.display="none";
+    var e=document.getElementById("err");
+    if(e) e.textContent="Couldn't send — please check your connection and try again.";
+    return;
+  }
+  done();
 }
 function done(){
   document.getElementById("overlay").classList.remove("show");
